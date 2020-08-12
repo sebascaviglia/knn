@@ -1,39 +1,86 @@
-# History files
-.Rhistory
-.Rapp.history
+---
+title: "R Notebook"
+output: html_notebook
+---
 
-# Session Data files
-.RData
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-# User-specific files
-.Ruserdata
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
-# Example code in package build process
-*-Ex.R
+```{r}
+# instalamos librerias
+library("class")
+library("caret")
 
-# Output files from R CMD build
-/*.tar.gz
+#cargamos data set
 
-# Output files from R CMD check
-/*.Rcheck/
+vac <-  read.csv("../Desktop/sebastian/r studio/cheat sheet/vacation-trip-classification.csv.txt")
 
-# RStudio files
-.Rproj.user/
+#normalizamos variables creando 2 variables nuevas respecto a la media
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
+vac$Income.z <- scale(vac$Income)
+vac$Family_size.z <- scale(vac$Family_size)
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
+#cremos una semilla
 
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
+set.seed(2018)
+```
 
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
 
-# R Environment Variables
-.Renviron
+```{r}
+#creamos las 3 particiones de datos
+
+t.ids <-  createDataPartition(vac$Result, p=0.5, list = FALSE)
+
+train <- vac[t.ids,]
+temp <-  vac[-t.ids,]
+
+v.ids <- createDataPartition(temp$Result, p=0.5, list = FALSE)
+
+val <- temp[v.ids,]
+
+test <- temp[-v.ids,]
+```
+
+
+```{r}
+#creamos las predicciones 
+
+pred1 <- knn(train[,4:5], val[,4:5], train[,3], k = 2)
+
+#generamos matriz de confusion
+
+errmat1 <-  table(val$Result, pred1 , dnn = c("actual" , "predicho"))
+errmat1
+
+pred2 <-  knn(train[,4:5], test[,4:5], train[,3], k = 1)
+errmat2 <-  table(test$Result, pred2 , dnn = c("actual" , "predicho"))
+errmat2
+```
+
+
+```{r}
+# automatizamos el k 
+
+knn.automate <- function(tr_predictors, val_predictors , tr_target, val_target, stark_k, end_k){
+  for(k in stark_k:end_k){
+    pred <- knn(tr_predictors, val_predictors, tr_target, k)
+    tab <- table(val_target, pred, dnn = c("Actual", "predicho"))
+    cat(paste("Matriz de confusion para k = ",k,"\n"))
+    cat("===================\n")
+    print(tab)
+    cat("--------------------\n")
+  }
+}
+knn.automate(train[,4:5], val[,4:5], train[,3],val[,3], 1,8)
+```
+
+
+```{r}
+trcntrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+caret_knn_fit <- train(Result ~ Family_size + Income , data= train,
+                       method = "knn", trcntrl = trcntrl,
+                       preProcess=c("center", "scale"),
+                       tunelenght= 10)
+
+caret_knn_fit
